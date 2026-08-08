@@ -23,13 +23,20 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         if parsed_path.path == '/_amplify/image':
             query = urllib.parse.parse_qs(parsed_path.query)
             if 'url' in query:
-                image_url = query['url'][0] # e.g. /images/image-features-nudges-2.webp
-                
-                # Check if it's pointing to /images/
+                image_url = query['url'][0]
                 if image_url.startswith('/images/'):
                     self.path = image_url
                     return super().do_GET()
                     
+        # Intercept Icon requests to prevent 404 noise
+        if parsed_path.path.startswith('/api/_nuxt_icon'):
+            self.send_response(200)
+            self.send_header("Content-type", "image/svg+xml")
+            self.end_headers()
+            # Return a simple blank/fallback SVG
+            self.wfile.write(b'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M5 17.59L15.59 7H9V5h10v10h-2V8.41L6.41 19L5 17.59z"/></svg>')
+            return
+
         return super().do_GET()
 
 with socketserver.TCPServer(("", PORT), CustomHandler) as httpd:
