@@ -2,6 +2,7 @@ import http.server
 import socketserver
 import urllib.parse
 import os
+import mimetypes
 
 PORT = 8091
 DIRECTORY = os.getcwd()
@@ -15,6 +16,12 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         super().end_headers()
+
+    def guess_type(self, path):
+        # If there is no extension, assume it's an HTML file (e.g. Nuxt generated pages like /platform/welzijn)
+        if '.' not in os.path.basename(path):
+            return 'text/html'
+        return super().guess_type(path)
 
     def do_GET(self):
         parsed_path = urllib.parse.urlparse(self.path)
@@ -33,12 +40,14 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "image/svg+xml")
             self.end_headers()
-            # Return a simple blank/fallback SVG
             self.wfile.write(b'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M5 17.59L15.59 7H9V5h10v10h-2V8.41L6.41 19L5 17.59z"/></svg>')
             return
 
         return super().do_GET()
 
-with socketserver.TCPServer(("", PORT), CustomHandler) as httpd:
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True
+
+with ThreadedTCPServer(("", PORT), CustomHandler) as httpd:
     print(f"Serving at port {PORT}")
     httpd.serve_forever()
